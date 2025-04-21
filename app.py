@@ -11,7 +11,7 @@ CORS(app)
 
 
 def get_laravel_endpoint(folder):
-    base_url = 'https://e3b5-125-164-14-202.ngrok-free.app'  # ganti ke URL ngrok kamu yang aktif
+    base_url = os.getenv("LARAVEL_URL") or 'http://localhost:8000'
     if folder == 'file':
         return f'{base_url}/api/upload-image/ktp'
     elif folder == 'capJempol':
