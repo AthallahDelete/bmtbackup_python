@@ -126,4 +126,5 @@ def index():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    debug_mode = os.environ.get("DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
