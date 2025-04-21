@@ -9,12 +9,15 @@ import time
 app = Flask(__name__)
 CORS(app)
 
+
 def get_laravel_endpoint(folder):
+    base_url = 'https://e3b5-125-164-14-202.ngrok-free.app'  # ganti ke URL ngrok kamu yang aktif
     if folder == 'file':
-        return 'http://localhost:8000/api/upload-image/ktp'
+        return f'{base_url}/api/upload-image/ktp'
     elif folder == 'capJempol':
-        return 'http://localhost:8000/api/upload-image/fingerprint'
-    return 'http://localhost:8000/api/upload-image'
+        return f'{base_url}/api/upload-image/fingerprint'
+    return f'{base_url}/api/upload-image'
+
 
 def ocr_ktp(image_data, api_key):
     url = 'https://api.ekycpro.com/v1/id_ocr/general'
@@ -23,7 +26,7 @@ def ocr_ktp(image_data, api_key):
         'X-API-Key': api_key
     }
     data = {'img': image_data}
-    
+
     try:
         response = requests.post(url, headers=headers, data=data)
         return response.json() if response.status_code == 200 else {
@@ -33,26 +36,29 @@ def ocr_ktp(image_data, api_key):
     except Exception as e:
         return {"status": "ERROR", "message": f"Exception occurred: {str(e)}"}
 
+
 @app.route('/process-ocr', methods=['POST'])
 def process_ocr():
     try:
         data = request.json
         image_data = data.get('image', '').split(',')[1]
-        api_key = os.getenv('API_KEY') or 'XAenIDLIyaELTeasy001LLyoheIDueasyMwIkQAhFweNbLVBRjzwVbNqa001'
+        api_key = os.getenv(
+            'API_KEY'
+        ) or 'XAenIDLIyaELTeasy001LLyoheIDueasyMwIkQAhFweNbLVBRjzwVbNqa001'
 
         unique_id = str(uuid.uuid4())
         filename = f"ktp_{unique_id}.jpg"
 
-        # Kirim ke Laravel endpoint khusus KTP
-        upload_response = upload_to_laravel(
-            filename,
-            image_data,
-            endpoint='http://localhost:8000/api/upload-image/ktp'
-        )
+        upload_response = upload_to_laravel(filename,
+                                            image_data,
+                                            folder='file')
 
         if not upload_response.get("success"):
             print("Upload response gagal:", upload_response)
-            return jsonify({"status": "ERROR", "message": "Gagal upload ke Laravel"}), 500
+            return jsonify({
+                "status": "ERROR",
+                "message": "Gagal upload ke Laravel"
+            }), 500
 
         result = ocr_ktp(image_data, api_key)
         print("OCR message content:", result.get('message'))
@@ -67,6 +73,7 @@ def process_ocr():
         traceback.print_exc()
         return jsonify({"status": "ERROR", "message": str(e)}), 500
 
+
 @app.route('/process-fingerprint', methods=['POST'])
 def process_fingerprint():
     try:
@@ -75,11 +82,15 @@ def process_fingerprint():
         timestamp = int(time.time())
         filename = f"capJempol_{timestamp}.jpg"
 
-        # Upload ke Laravel pakai folder
-        upload_response = upload_to_laravel(filename, fingerprint_data, folder='capJempol')
+        upload_response = upload_to_laravel(filename,
+                                            fingerprint_data,
+                                            folder='capJempol')
         if not upload_response.get("success"):
             print("Upload response gagal:", upload_response)
-            return jsonify({"status": "ERROR", "message": "Gagal upload ke Laravel"}), 500
+            return jsonify({
+                "status": "ERROR",
+                "message": "Gagal upload ke Laravel"
+            }), 500
 
         return jsonify({
             "status": "success",
@@ -90,11 +101,12 @@ def process_fingerprint():
         traceback.print_exc()
         return jsonify({"status": "ERROR", "message": str(e)}), 500
 
+
 def upload_to_laravel(filename, base64_data, folder=None, endpoint=None):
     try:
         if not endpoint:
             endpoint = get_laravel_endpoint(folder)
-        
+
         files = {
             'image': (filename, base64.b64decode(base64_data), 'image/jpeg'),
         }
@@ -106,5 +118,12 @@ def upload_to_laravel(filename, base64_data, folder=None, endpoint=None):
         print("Error saat upload:", str(e))
         return {"success": False, "error": str(e)}
 
+
+@app.route('/')
+def index():
+    return 'Flask server is running!'
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(debug=True, host='0.0.0.0', port=port)
